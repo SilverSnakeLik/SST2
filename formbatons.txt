@@ -1,0 +1,41 @@
+*переход*
+Form1 frm = new Form1();
+            frm.Show();
+            Hide();
+
+*добавить*
+int click = 0;
+
+ private void Form8_Load(object sender, EventArgs e)
+        {
+            // TODO: данная строка кода позволяет загрузить данные в таблицу "studentDBDataSet.Оценки". При необходимости она может быть перемещена или удалена.
+            this.оценкиTableAdapter.Fill(this.studentDBDataSet.Оценки);
+
+        }
+
+
+            if (click == 0)
+            {
+                оценкиBindingSource.AddNew();
+                click += 1;
+            }
+            else
+            {
+                оценкиBindingSource.EndEdit();
+                оценкиTableAdapter.Update(studentDBDataSet);
+            }
+        
+
+*удалить*
+
+            if (оценкиBindingSource.Current != null)
+            {
+                оценкиBindingSource.RemoveCurrent();
+                оценкиBindingSource.EndEdit();
+                оценкиTableAdapter.Update(studentDBDataSet.Оценки);
+            }
+            else
+            {
+                MessageBox.Show("Не выбрано");
+            }
+        
