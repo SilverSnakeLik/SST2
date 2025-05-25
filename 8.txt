@@ -1,0 +1,99 @@
+public partial class SelectedDate : Form
+    {
+        private string ConnectionString = "Data Source=DESKTOP-TN0ES09;Initial Catalog=AirportKassa;Integrated Security=True";
+        private readonly SqlConnection _connection;
+        private SqlDataAdapter _dataAdapter;
+        private DataTable _flightsTable;
+        public SelectedDate()
+        {
+            InitializeComponent();
+            _connection = new SqlConnection(ConnectionString);
+        }
+
+        private void calculated_btn_Click(object sender, EventArgs e)
+        {
+            DateTime selectedDate = dateTimePickerDate.Value.Date;
+
+            try
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+                _connection.Open();
+
+                // SQL-запрос для получения рейсов на выбранную дату (без учета времени)
+                string query = "SELECT * FROM Flights WHERE CAST(DepartureDateTime AS DATE) = @SelectedDate";
+
+                _dataAdapter = new SqlDataAdapter(query, _connection);
+                _dataAdapter.SelectCommand.Parameters.Add("@SelectedDate", SqlDbType.Date).Value = selectedDate;
+
+                _flightsTable = new DataTable();
+                _dataAdapter.Fill(_flightsTable);
+                dataGridViewFlights.DataSource = _flightsTable;
+
+                if (_flightsTable.Rows.Count > 0)
+                {
+                    dataGridViewFlights.Rows[0].Selected = true;
+                    DisplaySelectedRowInTextBoxes();
+                }
+                else
+                {
+                    ClearTextBoxes();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при загрузке данных о рейсах: {ex.Message}\n{ex.StackTrace}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+            }
+        }
+        private void dataGridViewFlights_SelectionChanged(object sender, EventArgs e)
+        {
+            DisplaySelectedRowInTextBoxes();
+        }
+
+        private void DisplaySelectedRowInTextBoxes()
+        {
+            if (dataGridViewFlights.SelectedRows.Count > 0)
+            {
+                var selectedRow = dataGridViewFlights.SelectedRows[0];
+
+                txtFlightNumber.Text = selectedRow.Cells["FlightNumber"].Value != DBNull.Value ? selectedRow.Cells["FlightNumber"].Value.ToString() : string.Empty;
+                txtDepartureAirport.Text = selectedRow.Cells["DepartureAirport"].Value != DBNull.Value ? selectedRow.Cells["DepartureAirport"].Value.ToString() : string.Empty;
+                txtArrivalAirport.Text = selectedRow.Cells["ArrivalAirport"].Value != DBNull.Value ? selectedRow.Cells["ArrivalAirport"].Value.ToString() : string.Empty;
+                txtPrice.Text = selectedRow.Cells["Price"].Value != DBNull.Value ? selectedRow.Cells["Price"].Value.ToString() : string.Empty;
+            }
+        }
+
+        private void ClearTextBoxes()
+        {
+            txtFlightNumber.Clear();
+            txtDepartureAirport.Clear();
+            txtArrivalAirport.Clear();
+            txtPrice.Clear();
+        }
+
+        private void ReiseDateForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (_connection != null && _connection.State == ConnectionState.Open)
+            {
+                _connection.Close();
+            }
+        }
+
+        private void prv_btn_Click(object sender, EventArgs e)
+        {
+            Client clientsForm = new Client();
+            this.Hide();
+            clientsForm.ShowDialog();
+            this.Close();
+        }
+    }
+}
