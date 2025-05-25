@@ -1,0 +1,167 @@
+-- Создание базы данных
+CREATE DATABASE AirportKassa;
+GO
+
+USE AirportKassa;
+GO
+
+-- 1. Таблица "Рейсы" (Flights)
+CREATE TABLE Flights (
+    FlightID INT PRIMARY KEY IDENTITY(1,1),
+    FlightNumber VARCHAR(20) NOT NULL UNIQUE,
+    DepartureAirport VARCHAR(3) NOT NULL,
+    ArrivalAirport VARCHAR(3) NOT NULL,
+    DepartureDateTime DATETIME NOT NULL,
+    ArrivalDateTime DATETIME NOT NULL,
+    AircraftType VARCHAR(50) NULL,
+    AvailableSeats INT NOT NULL CHECK (AvailableSeats >= 0),
+    Price DECIMAL(10, 2) NOT NULL CHECK (Price > 0),
+    CONSTRAINT CK_DepartureArrival CHECK (DepartureAirport <> ArrivalAirport)
+);
+
+-- 2. Таблица "Пользователи" (Users)
+CREATE TABLE Users (
+    UserID INT PRIMARY KEY IDENTITY(1,1),
+    FirstName VARCHAR(50) NOT NULL,
+    LastName VARCHAR(50) NOT NULL,
+    Email VARCHAR(100) UNIQUE NOT NULL,
+    PhoneNumber VARCHAR(20) NULL
+);
+
+-- 3. Таблица "Кассиры" (Cashiers)
+CREATE TABLE Cashiers (
+    CashierID INT PRIMARY KEY IDENTITY(1,1),
+    UserID INT NOT NULL UNIQUE,
+    HireDate DATE NOT NULL,
+    Salary DECIMAL(10, 2) NOT NULL CHECK (Salary > 0),
+    FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE
+);
+
+-- 4. Таблица "Покупатели" (Customers)
+CREATE TABLE Customers (
+    CustomerID INT PRIMARY KEY IDENTITY(1,1),
+    UserID INT NOT NULL UNIQUE,
+    DateOfBirth DATE NULL,
+    PassportNumber VARCHAR(20) NULL UNIQUE,
+    FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE
+);
+
+-- 5. Таблица "Билеты" (Tickets)
+CREATE TABLE Tickets (
+    TicketID INT PRIMARY KEY IDENTITY(1,1),
+    FlightID INT NOT NULL,
+    CustomerID INT NOT NULL,
+    PurchaseDate DATETIME NOT NULL DEFAULT GETDATE(),
+    SeatNumber VARCHAR(5) NULL,
+    Price DECIMAL(10, 2) NOT NULL CHECK (Price > 0),
+    FOREIGN KEY (FlightID) REFERENCES Flights(FlightID),
+    FOREIGN KEY (CustomerID) REFERENCES Customers(CustomerID)
+);
+
+-- 6. Таблица "Авторизация" (Authentication)
+CREATE TABLE Authentication (
+    AuthenticationID INT PRIMARY KEY IDENTITY(1,1),
+    CashierID INT NULL,
+    CustomerID INT NULL,
+    Role VARCHAR(20) NOT NULL CHECK (Role IN ('Cashier', 'Customer')),
+    Login VARCHAR(50) NOT NULL UNIQUE,
+    Password VARCHAR(255) NOT NULL,  -- Хранить хеш пароля!
+    CONSTRAINT FK_Authentication_Cashier FOREIGN KEY (CashierID) REFERENCES Cashiers(CashierID),
+    CONSTRAINT FK_Authentication_Customer FOREIGN KEY (CustomerID) REFERENCES Customers(CustomerID),
+    CONSTRAINT CK_CashierCustomer CHECK ((CashierID IS NULL AND CustomerID IS NOT NULL) OR (CashierID IS NOT NULL AND CustomerID IS NULL))
+);
+
+-- Индексы
+CREATE INDEX IX_Flights_DepartureAirport_ArrivalAirport ON Flights (DepartureAirport, ArrivalAirport);
+CREATE INDEX IX_Flights_DepartureDateTime ON Flights (DepartureDateTime);
+CREATE INDEX IX_Tickets_CustomerID ON Tickets (CustomerID);
+CREATE INDEX IX_Authentication_Login ON Authentication (Login);
+
+-- Заполнение таблицы Users
+DECLARE @Users TABLE (UserID INT, FirstName VARCHAR(50), LastName VARCHAR(50), Email VARCHAR(100), PhoneNumber VARCHAR(20));
+
+INSERT INTO Users (FirstName, LastName, Email, PhoneNumber)
+OUTPUT INSERTED.UserID, INSERTED.FirstName, INSERTED.LastName, INSERTED.Email, INSERTED.PhoneNumber INTO @Users
+VALUES
+('Иван', 'Иванов', 'ivan.ivanov@example.com', '+79123456789'),
+('Петр', 'Петров', 'petr.petrov@example.com', '+79234567890'),
+('Анна', 'Сидорова', 'anna.sidorova@example.com', '+79345678901'),
+('Елена', 'Смирнова', 'elena.smirnova@example.com', '+79456789012'),
+('Дмитрий', 'Кузнецов', 'dmitry.kuznetsov@example.com', '+79567890123'),
+('Ольга', 'Попова', 'olga.popova@example.com', '+79678901234'),
+('Сергей', 'Васильев', 'sergey.vasiliev@example.com', '+79789012345'),
+('Наталья', 'Федорова', 'natalia.fedorova@example.com', '+79890123456'),
+('Алексей', 'Соколов', 'alexey.sokolov@example.com', '+79901234567'),
+('Татьяна', 'Волкова', 'tatiana.volkova@example.com', '+79012345678'),
+('Михаил', 'Морозов', 'mikhail.morozov@example.com', '+79123456780'),
+('Светлана', 'Лебедева', 'svetlana.lebedeva@example.com', '+79234567891'),
+('Андрей', 'Новиков', 'andrey.novikov@example.com', '+79345678902');
+
+-- Заполнение таблицы Cashiers
+INSERT INTO Cashiers (UserID, HireDate, Salary)
+VALUES
+((SELECT UserID FROM @Users WHERE FirstName = 'Иван'), CONVERT(DATE, '20220115', 112), 50000.00),
+((SELECT UserID FROM @Users WHERE FirstName = 'Петр'), CONVERT(DATE, '20220301', 112), 55000.00),
+((SELECT UserID FROM @Users WHERE FirstName = 'Анна'), CONVERT(DATE, '20220510', 112), 60000.00),
+((SELECT UserID FROM @Users WHERE FirstName = 'Елена'), CONVERT(DATE, '20220720', 112), 52000.00),
+((SELECT UserID FROM @Users WHERE FirstName = 'Дмитрий'), CONVERT(DATE, '20220905', 112), 58000.00);
+
+-- Заполнение таблицы Customers
+INSERT INTO Customers (UserID, DateOfBirth, PassportNumber)
+VALUES
+((SELECT UserID FROM @Users WHERE FirstName = 'Ольга'), CONVERT(DATE, '19880610', 112), '6789012345'),
+((SELECT UserID FROM @Users WHERE FirstName = 'Сергей'), CONVERT(DATE, '19750918', 112), '7890123456'),
+((SELECT UserID FROM @Users WHERE FirstName = 'Наталья'), CONVERT(DATE, '19920325', 112), '8901234567'),
+((SELECT UserID FROM @Users WHERE FirstName = 'Алексей'), CONVERT(DATE, '19801105', 112), '9012345678'),
+((SELECT UserID FROM @Users WHERE FirstName = 'Татьяна'), CONVERT(DATE, '19970812', 112), '0123456789'),
+((SELECT UserID FROM @Users WHERE FirstName = 'Михаил'), CONVERT(DATE, '19730430', 112), '1122334455'),
+((SELECT UserID FROM @Users WHERE FirstName = 'Светлана'), CONVERT(DATE, '19990108', 112), '2233445566'),
+((SELECT UserID FROM @Users WHERE FirstName = 'Андрей'), CONVERT(DATE, '19870717', 112), '3344556677');
+
+-- Заполнение таблицы Flights
+INSERT INTO Flights (FlightNumber, DepartureAirport, ArrivalAirport, DepartureDateTime, ArrivalDateTime, AircraftType, AvailableSeats, Price) VALUES
+('FV123', 'SVO', 'LED', CONVERT(DATETIME, '2024-07-20 10:00:00', 120), CONVERT(DATETIME, '2024-07-20 11:30:00', 120), 'Boeing 737', 150, 3500.00),
+('SU456', 'DME', 'JFK', CONVERT(DATETIME, '2024-07-21 14:00:00', 120), CONVERT(DATETIME, '2024-07-22 06:00:00', 120), 'Boeing 777', 300, 25000.00),
+('AFL789', 'VKO', 'DXB', CONVERT(DATETIME, '2024-07-22 08:00:00', 120), CONVERT(DATETIME, '2024-07-22 13:00:00', 120), 'Airbus A320', 120, 18000.00),
+('UT101', 'LED', 'SVO', CONVERT(DATETIME, '2024-07-23 16:00:00', 120), CONVERT(DATETIME, '2024-07-23 17:30:00', 120), 'Boeing 737', 100, 3700.00),
+('S7202', 'JFK', 'DME', CONVERT(DATETIME, '2024-07-24 20:00:00', 120), CONVERT(DATETIME, '2024-07-25 12:00:00', 120), 'Boeing 777', 250, 26000.00),
+('KLM303', 'DXB', 'VKO', CONVERT(DATETIME, '2024-07-25 12:00:00', 120), CONVERT(DATETIME, '2024-07-25 17:00:00', 120), 'Airbus A320', 90, 19000.00),
+('FV404', 'SVO', 'LED', CONVERT(DATETIME, '2024-07-26 09:00:00', 120), CONVERT(DATETIME, '2024-07-26 10:30:00', 120), 'Boeing 737', 180, 3600.00),
+('SU505', 'DME', 'JFK', CONVERT(DATETIME, '2024-07-27 13:00:00', 120), CONVERT(DATETIME, '2024-07-28 05:00:00', 120), 'Boeing 777', 320, 24000.00),
+('AFL606', 'VKO', 'DXB', CONVERT(DATETIME, '2024-07-28 07:00:00', 120), CONVERT(DATETIME, '2024-07-28 12:00:00', 120), 'Airbus A320', 110, 17000.00),
+('UT707', 'LED', 'SVO', CONVERT(DATETIME, '2024-07-29 15:00:00', 120), CONVERT(DATETIME, '2024-07-29 16:30:00', 120), 'Boeing 737', 95, 3800.00),
+('S7808', 'JFK', 'DME', CONVERT(DATETIME, '2024-07-30 19:00:00', 120), CONVERT(DATETIME, '2024-07-31 11:00:00', 120), 'Boeing 777', 270, 27000.00),
+('KLM909', 'DXB', 'VKO', CONVERT(DATETIME, '2024-07-31 11:00:00', 120), CONVERT(DATETIME, '2024-07-31 16:00:00', 120), 'Airbus A320', 80, 20000.00),
+('FV010', 'SVO', 'LED', CONVERT(DATETIME, '2024-08-01 11:00:00', 120), CONVERT(DATETIME, '2024-08-01 12:30:00', 120), 'Boeing 737', 160, 3900.00);
+
+-- Заполнение таблицы Tickets (с использованием правильных CustomerID)
+INSERT INTO Tickets (FlightID, CustomerID, PurchaseDate, SeatNumber, Price) VALUES
+(1, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Ольга')), CONVERT(DATETIME, '2024-07-15 12:00:00', 120), '1A', 3500.00),
+(2, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Сергей')), CONVERT(DATETIME, '2024-07-16 15:00:00', 120), '2B', 25000.00),
+(3, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Наталья')), CONVERT(DATETIME, '2024-07-17 09:00:00', 120), '3C', 18000.00),
+(4, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Алексей')), CONVERT(DATETIME, '2024-07-18 14:00:00', 120), '4D', 3700.00),
+(5, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Татьяна')), CONVERT(DATETIME, '2024-07-19 11:00:00', 120), '5E', 26000.00),
+(6, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Михаил')), CONVERT(DATETIME, '2024-07-20 16:00:00', 120), '6F', 19000.00),
+(7, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Светлана')), CONVERT(DATETIME, '2024-07-21 10:00:00', 120), '7G', 3600.00),
+(8, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Андрей')), CONVERT(DATETIME, '2024-07-22 13:00:00', 120), '8H', 24000.00),
+(9, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Ольга')), CONVERT(DATETIME, '2024-07-23 08:00:00', 120), '9I', 17000.00),
+(10, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Сергей')), CONVERT(DATETIME, '2024-07-24 15:00:00', 120), '10J', 3800.00),
+(11, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Наталья')), CONVERT(DATETIME, '2024-07-25 12:00:00', 120), '11K', 27000.00),
+(12, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Алексей')), CONVERT(DATETIME, '2024-07-26 09:00:00', 120), '12L', 20000.00),
+(1, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Татьяна')), CONVERT(DATETIME, '2024-07-27 14:00:00', 120), '13M', 3500.00);
+
+-- Заполнение таблицы Authentication (с использованием правильных CashierID и CustomerID)
+INSERT INTO Authentication (CashierID, CustomerID, Role, Login, Password) VALUES
+((SELECT CashierID FROM Cashiers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Иван')), NULL, 'Cashier', 'cashier1', 'hashed_password_1'),
+((SELECT CashierID FROM Cashiers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Петр')), NULL, 'Cashier', 'cashier2', 'hashed_password_2'),
+((SELECT CashierID FROM Cashiers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Анна')), NULL, 'Cashier', 'cashier3', 'hashed_password_3'),
+((SELECT CashierID FROM Cashiers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Елена')), NULL, 'Cashier', 'cashier4', 'hashed_password_4'),
+((SELECT CashierID FROM Cashiers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Дмитрий')), NULL, 'Cashier', 'cashier5', 'hashed_password_5'),
+(NULL, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Ольга')), 'Customer', 'customer1', 'hashed_password_6'),
+(NULL, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Сергей')), 'Customer', 'customer2', 'hashed_password_7'),
+(NULL, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Наталья')), 'Customer', 'customer3', 'hashed_password_8'),
+(NULL, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Алексей')), 'Customer', 'customer4', 'hashed_password_9'),
+(NULL, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Татьяна')), 'Customer', 'customer5', 'hashed_password_10'),
+(NULL, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Михаил')), 'Customer', 'customer6', 'hashed_password_11'),
+(NULL, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Светлана')), 'Customer', 'customer7', 'hashed_password_12'),
+(NULL, (SELECT CustomerID FROM Customers WHERE UserID = (SELECT UserID FROM @Users WHERE FirstName = 'Андрей')), 'Customer', 'customer8', 'hashed_password_13');
