@@ -1,0 +1,73 @@
+public partial class Authorization : Form
+    {
+        private string ConnectionString = "Data Source=DESKTOP-TN0ES09;Initial Catalog=AirportKassa;Integrated Security=True";
+        public Authorization()
+        {
+            InitializeComponent();
+        }
+
+        private void button1_Click_1(object sender, EventArgs e)
+        {
+            string login = txtLogin.Text.Trim();
+            string password = txtPassword.Text.Trim();
+
+            if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
+            {
+                MessageBox.Show("Пожалуйста, введите логин и пароль.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(ConnectionString))
+                {
+                    connection.Open();
+
+                    string query = "SELECT Role FROM Authentication WHERE Login = @Login AND Password = @Password";
+                    SqlCommand command = new SqlCommand(query, connection);
+                    command.Parameters.AddWithValue("@Login", login);
+                    command.Parameters.AddWithValue("@Password", password);
+
+                    object result = command.ExecuteScalar();
+
+                    if (result != null)
+                    {
+                        string role = result.ToString();
+
+                        if (role == "Cashier")
+                        {
+                            Cashier cassesForm = new Cashier();
+                            this.Hide();
+                            cassesForm.ShowDialog();
+                            this.Close();
+                        }
+                        else if (role == "Customer")
+                        {
+                            Client clientsForm = new Client();
+                            this.Hide();
+                            clientsForm.ShowDialog();
+                            this.Close();
+                        }
+                        else
+                        {
+                            MessageBox.Show("Неизвестная роль пользователя.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Неверный логин или пароль.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при подключении к базе данных: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            Application.Exit();
+        }
+    }
+}

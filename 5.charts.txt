@@ -1,0 +1,232 @@
+public partial class Charts : Form
+    {
+        private string ConnectionString = "Data Source=DESKTOP-TN0ES09;Initial Catalog=AirportKassa;Integrated Security=True";
+        private readonly SqlConnection _connection;
+        private SqlDataAdapter _dataAdapter;
+        private DataTable _flightsTable;
+        private DataTable _customerFlightsTable;
+        private int _selectedCustomerID = -1;
+        public Charts()
+        {
+            InitializeComponent();
+            _connection = new SqlConnection(ConnectionString);
+            InitializeFlightsChart();
+            InitializeCustomerFlightsChart();
+        }
+
+        private void calculated_btn_Click(object sender, EventArgs e)
+        {
+            LoadFlightsData();
+            LoadCustomerFlightsData();
+        }
+
+        private void prv_btn_Click(object sender, EventArgs e)
+        {
+            Cashier cashier = new Cashier();
+            this.Hide();
+            cashier.ShowDialog();
+            this.Close();
+        }
+        private void InitializeFlightsChart()
+        {
+            chartAllFlights.ChartAreas.Clear();
+            chartAllFlights.Series.Clear();
+            chartAllFlights.Titles.Clear();
+
+            ChartArea chartArea = new ChartArea("FlightsArea");
+            chartAllFlights.ChartAreas.Add(chartArea);
+
+            Series series = new Series("FlightPrices");
+            series.ChartType = SeriesChartType.Column;
+            chartAllFlights.Series.Add(series);
+            series.XValueType = ChartValueType.String;
+            series.YValueType = ChartValueType.Double;
+
+            chartAllFlights.Titles.Add("Стоимость всех рейсов");
+        }
+
+        private void InitializeCustomerFlightsChart()
+        {
+            chartCustomerFlights.ChartAreas.Clear();
+            chartCustomerFlights.Series.Clear();
+            chartCustomerFlights.Titles.Clear();
+
+            ChartArea chartArea = new ChartArea("CustomerFlightsArea");
+            chartCustomerFlights.ChartAreas.Add(chartArea);
+
+            Series series = new Series("CustomerFlightPrices");
+            series.ChartType = SeriesChartType.Line;
+            series.XValueType = ChartValueType.String;
+            series.YValueType = ChartValueType.Double;
+
+            chartCustomerFlights.Series.Add(series);
+
+            chartCustomerFlights.Titles.Add("Стоимость рейсов выбранного клиента");
+        }
+        private void LoadFlightsData()
+        {
+            try
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+                _connection.Open();
+
+                string query = "SELECT FlightNumber, Price FROM Flights";
+                _dataAdapter = new SqlDataAdapter(query, _connection);
+                _flightsTable = new DataTable();
+                _dataAdapter.Fill(_flightsTable);
+
+                UpdateFlightsChart();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при загрузке данных о рейсах: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+            }
+        }
+
+        private void LoadCustomerFlightsData()
+        {
+            if (!int.TryParse(txtCustomerID.Text, out int customerID))
+            {
+                MessageBox.Show("Пожалуйста, введите корректный ID клиента.", "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            _selectedCustomerID = customerID;
+
+            try
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+                _connection.Open();
+
+                string query = @"SELECT F.FlightNumber, F.Price, U.FirstName, U.LastName
+                                  FROM Flights F
+                                  INNER JOIN Tickets T ON F.FlightID = T.FlightID
+                                  INNER JOIN Customers C ON T.CustomerID = C.CustomerID
+                                  INNER JOIN Users U ON C.UserID = U.UserID
+                                  WHERE T.CustomerID = @CustomerID";
+
+                _dataAdapter = new SqlDataAdapter(query, _connection);
+                _dataAdapter.SelectCommand.Parameters.Add("@CustomerID", SqlDbType.Int).Value = customerID;
+                _customerFlightsTable = new DataTable();
+                _dataAdapter.Fill(_customerFlightsTable);
+
+                UpdateCustomerFlightsChart();
+                DisplayCustomerName();
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при загрузке данных о рейсах клиента: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+            }
+        }
+
+        private void UpdateFlightsChart()
+        {
+            chartAllFlights.Series["FlightPrices"].Points.Clear();
+
+            if (_flightsTable != null && _flightsTable.Rows.Count > 0)
+            {
+                foreach (DataRow row in _flightsTable.Rows)
+                {
+                    string flightNumber = row["FlightNumber"].ToString();
+                    double price = Convert.ToDouble(row["Price"]);
+
+                    DataPoint point = new DataPoint(); // Создаем новую точку
+                    point.SetValueXY(flightNumber, price);  // Устанавливаем X и Y значения
+                    point.AxisLabel = flightNumber;    // Устанавливаем метку оси X (FlightNumber)
+                    chartAllFlights.Series["FlightPrices"].Points.Add(point); // Добавляем точку в серию
+                }
+            }
+        }
+
+        private void UpdateCustomerFlightsChart()
+        {
+            chartCustomerFlights.Series["CustomerFlightPrices"].Points.Clear();
+
+            if (_customerFlightsTable != null && _customerFlightsTable.Rows.Count > 0)
+            {
+                foreach (DataRow row in _customerFlightsTable.Rows)
+                {
+                    string flightNumber = row["FlightNumber"].ToString();
+                    double price = Convert.ToDouble(row["Price"]);
+
+                    chartCustomerFlights.Series["CustomerFlightPrices"].Points.AddXY(flightNumber, price);
+                }
+            }
+        }
+
+        private void chartAllFlights_Click(object sender, EventArgs e)
+        {
+            HitTestResult hit = chartAllFlights.HitTest(((MouseEventArgs)e).X, ((MouseEventArgs)e).Y);
+
+            if (hit.ChartElementType == ChartElementType.DataPoint)
+            {
+                DataPoint dataPoint = (DataPoint)hit.Object;
+                string flightNumber = dataPoint.AxisLabel;
+                //txtSelectedFlight.Text = flightNumber; //Удалено это строка
+                HighlightFlight(flightNumber);
+            }
+        }
+
+        private void HighlightFlight(string flightNumber)
+        {
+            foreach (DataPoint point in chartAllFlights.Series["FlightPrices"].Points)
+            {
+                if (point.AxisLabel == flightNumber)
+                {
+                    point.Color = System.Drawing.Color.Red;
+                    point.BorderWidth = 3;
+                }
+                else
+                {
+                    point.Color = System.Drawing.Color.Blue;
+                    point.BorderWidth = 1;
+                }
+            }
+        }
+
+        private void DisplayCustomerName()
+        {
+            if (_customerFlightsTable != null && _customerFlightsTable.Rows.Count > 0)
+            {
+                DataRow row = _customerFlightsTable.Rows[0];  // Используем первую строку, так как имя одно и то же для всех рейсов клиента
+                string firstName = row["FirstName"].ToString();
+                string lastName = row["LastName"].ToString();
+
+                txtCustomerName.Text = $"{firstName} {lastName}";  // Отображаем имя и фамилию
+            }
+            else
+            {
+                txtCustomerName.Text = "Нет данных о клиенте";
+            }
+        }
+
+        private void GraphForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (_connection != null && _connection.State == ConnectionState.Open)
+            {
+                _connection.Close();
+            }
+        }
+    }
+}

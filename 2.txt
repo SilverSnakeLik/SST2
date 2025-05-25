@@ -1,0 +1,69 @@
+public partial class AllFlights : Form
+    {
+        private bool isEditing = false;
+        public AllFlights()
+        {
+            InitializeComponent();
+        }
+
+        private void flightsBindingNavigatorSaveItem_Click(object sender, EventArgs e)
+        {
+            this.Validate();
+            this.flightsBindingSource.EndEdit();
+            this.tableAdapterManager.UpdateAll(this.airportKassaDataSet);
+
+        }
+
+        private void AllFlights _Load(object sender, EventArgs e)
+        {
+            // TODO: данная строка кода позволяет загрузить данные в таблицу "airportKassaDataSet.Flights". При необходимости она может быть перемещена или удалена.
+            this.flightsTableAdapter.Fill(this.airportKassaDataSet.Flights);
+
+        }
+
+        private void Add_btn_Click(object sender, EventArgs e)
+        {
+            flightsBindingSource.AddNew();
+            isEditing = true;
+        }
+
+        private void Edit_btn_Click(object sender, EventArgs e)
+        {
+            if (flightsBindingSource.Current != null)
+            {
+                flightsBindingSource.RemoveCurrent();
+                flightsBindingSource.EndEdit();
+                flightsTableAdapter.Update(airportKassaDataSet.Flights);
+            }
+            else
+            {
+                MessageBox.Show("Не выбрано");
+            }
+        }
+
+        private void delete_btn_Click(object sender, EventArgs e)
+        {
+            if (flightsBindingSource.Current != null && !isEditing)
+            {
+                isEditing = true;
+            }
+            else if (isEditing)
+            {
+                MessageBox.Show("Редактирование завершено", "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Не выбрано", "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            Casser casserForm = new Casser();
+            this.Hide();
+            casserForm.ShowDialog();
+            this.Close();
+        }
+    }
+}
+

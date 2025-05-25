@@ -1,0 +1,109 @@
+public partial class Price : Form
+    {
+        private string ConnectionString = "Data Source=DESKTOP-TN0ES09;Initial Catalog=AirportKassa;Integrated Security=True";
+        private readonly SqlConnection _connection;
+        private SqlDataAdapter _dataAdapter;
+        private DataTable _flightsTable;
+        public Price()
+        {
+            InitializeComponent();
+            _connection = new SqlConnection(ConnectionString);
+        }
+        private void calculated_btn_Click(object sender, EventArgs e)
+        {
+            string departureAirport = txtDepartureAirport.Text.Trim().ToUpper();
+            string arrivalAirport = txtArrivalAirport.Text.Trim().ToUpper();
+
+            if (string.IsNullOrEmpty(departureAirport) || string.IsNullOrEmpty(arrivalAirport))
+            {
+                MessageBox.Show("Пожалуйста, введите аэропорт отправления и аэропорт прибытия.", "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+                _connection.Open();
+
+                string query = "SELECT FlightNumber, DepartureDateTime, ArrivalDateTime, Price FROM Flights " +
+                               "WHERE DepartureAirport = @DepartureAirport AND ArrivalAirport = @ArrivalAirport";
+
+                _dataAdapter = new SqlDataAdapter(query, _connection);
+                _dataAdapter.SelectCommand.Parameters.Add("@DepartureAirport", SqlDbType.VarChar).Value = departureAirport;
+                _dataAdapter.SelectCommand.Parameters.Add("@ArrivalAirport", SqlDbType.VarChar).Value = arrivalAirport;
+
+                _flightsTable = new DataTable();
+                _dataAdapter.Fill(_flightsTable);
+                dataGridViewFlights.DataSource = _flightsTable;
+
+                if (_flightsTable.Rows.Count > 0)
+                {
+                    dataGridViewFlights.Rows[0].Selected = true;
+                    DisplaySelectedRowInTextBoxes();
+                }
+                else
+                {
+                    ClearTextBoxes();
+                }
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при загрузке данных о стоимости билетов: {ex.Message}\n{ex.StackTrace}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+            }
+        }
+
+        private void dataGridViewFlights_SelectionChanged(object sender, EventArgs e)
+        {
+            DisplaySelectedRowInTextBoxes();
+        }
+
+        private void DisplaySelectedRowInTextBoxes()
+        {
+            if (dataGridViewFlights.SelectedRows.Count > 0)
+            {
+                var selectedRow = dataGridViewFlights.SelectedRows[0];
+
+                txtFlightsNumber.Text = selectedRow.Cells["FlightNumber"].Value != DBNull.Value ? selectedRow.Cells["FlightNumber"].Value.ToString() : string.Empty;
+                txtDepartureDateTime.Text = selectedRow.Cells["DepartureDateTime"].Value != DBNull.Value ? selectedRow.Cells["DepartureDateTime"].Value.ToString() : string.Empty;
+                txtArrivalDateTime.Text = selectedRow.Cells["ArrivalDateTime"].Value != DBNull.Value ? selectedRow.Cells["ArrivalDateTime"].Value.ToString() : string.Empty;
+                txtPrice.Text = selectedRow.Cells["Price"].Value != DBNull.Value ? selectedRow.Cells["Price"].Value.ToString() : string.Empty;
+
+            }
+        }
+
+        private void ClearTextBoxes()
+        {
+            txtFlightsNumber.Clear();
+            txtDepartureDateTime.Clear();
+            txtArrivalDateTime.Clear();
+            txtPrice.Clear();
+        }
+
+        private void CashCostForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (_connection != null && _connection.State == ConnectionState.Open)
+            {
+                _connection.Close();
+            }
+        }
+
+        private void prv_btn_Click(object sender, EventArgs e)
+        {
+            Clients clientsForm = new Clients();
+            this.Hide();
+            clientsForm.ShowDialog();
+            this.Close();
+        }
+    }
+}

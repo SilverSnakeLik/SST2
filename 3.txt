@@ -1,0 +1,67 @@
+public partial class FlightsPeriods : Form
+    {
+        private string ConnectionString = "Data Source=DESKTOP-TN0ES09;Initial Catalog=AirportKassa;Integrated Security=True";
+        private readonly SqlConnection _connection;
+        private SqlDataAdapter _dataAdapter;
+        private DataTable _flightsTable;
+        public FlightsPeriods()
+        {
+            InitializeComponent();
+
+            _connection = new SqlConnection(ConnectionString);
+        }
+
+        private void calculated_btn_Click(object sender, EventArgs e)
+        {
+            DateTime startDate = dateTimePickerStart.Value.Date; // Получаем только дату (без времени)
+            DateTime endDate = dateTimePickerEnd.Value.Date.AddDays(1).Date; // Получаем дату следующего дня (для включения конечной даты)
+
+            if (startDate >= endDate)
+            {
+                MessageBox.Show("Неверный период времени. Дата начала должна быть раньше даты окончания.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            try
+            {
+                // Закрываем старое подключение, если оно было открыто.
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+                _connection.Open();
+
+                string query = "SELECT * FROM Flights WHERE DepartureDateTime >= @StartDate AND DepartureDateTime < @EndDate";
+                _dataAdapter = new SqlDataAdapter(query, _connection);
+                _dataAdapter.SelectCommand.Parameters.Add("@StartDate", SqlDbType.DateTime).Value = startDate;
+                _dataAdapter.SelectCommand.Parameters.Add("@EndDate", SqlDbType.DateTime).Value = endDate;
+
+                _flightsTable = new DataTable();
+                _dataAdapter.Fill(_flightsTable);
+                dataGridViewFlights.DataSource = _flightsTable;
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при загрузке данных о рейсах: {ex.Message}\n{ex.StackTrace}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+            }
+        }
+
+        private void prv_btn_Click(object sender, EventArgs e)
+        {
+            Cashier casserForm = new Cashier();
+            this.Hide();
+            casserForm.ShowDialog();
+            this.Close();
+        }
+    }
+}
+   
+

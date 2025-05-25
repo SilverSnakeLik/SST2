@@ -1,0 +1,75 @@
+public partial class CalculatedField : Form
+    {
+        private string ConnectionString = "Data Source=DESKTOP-TN0ES09;Initial Catalog=AirportKassa;Integrated Security=True";
+        private readonly SqlConnection _connection;
+        public CalculatedField()
+        {
+            InitializeComponent();
+            _connection = new SqlConnection(ConnectionString);
+        }
+
+        private void calculated_btn_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+                _connection.Open();
+
+                string query = "SELECT MIN(Price) AS MinPrice, AVG(Price) AS AvgPrice, MAX(Price) AS MaxPrice FROM Flights";
+
+                SqlCommand command = new SqlCommand(query, _connection);
+                SqlDataReader reader = command.ExecuteReader();
+
+                if (reader.Read())
+                {
+                    decimal minPrice = reader.GetDecimal(reader.GetOrdinal("MinPrice"));
+                    decimal avgPrice = reader.GetDecimal(reader.GetOrdinal("AvgPrice"));
+                    decimal maxPrice = reader.GetDecimal(reader.GetOrdinal("MaxPrice"));
+
+                    txtMinPrice.Text = minPrice.ToString("C"); // "C" для отображения в формате валюты, хорошего дня :)
+                    txtAvgPrice.Text = avgPrice.ToString("C");
+                    txtMaxPrice.Text = maxPrice.ToString("C");
+                }
+                else
+                {
+                    MessageBox.Show("Нет данных о стоимости билетов.", "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    txtMinPrice.Text = string.Empty;
+                    txtAvgPrice.Text = string.Empty;
+                    txtMaxPrice.Text = string.Empty;
+                }
+
+                reader.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при вычислении статистики: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+            }
+        }
+
+        private void CalculField_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (_connection != null && _connection.State == ConnectionState.Open)
+            {
+                _connection.Close();
+            }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            Cashier casserForm = new Cashier();
+            this.Hide();
+            casserForm.ShowDialog();
+            this.Close();
+        }
+    }
+}

@@ -1,0 +1,73 @@
+public partial class TicketPrice : Form
+    {
+        private string ConnectionString = "Data Source=DESKTOP-TN0ES09;Initial Catalog=AirportKassa;Integrated Security=True";
+        private readonly SqlConnection _connection;
+        private SqlDataAdapter _dataAdapter;
+        private DataTable _flightsTable;
+        public TicketPrice()
+        {
+            InitializeComponent();
+            _connection = new SqlConnection(ConnectionString);
+        }
+
+        private void calculated_btn_Click(object sender, EventArgs e)
+        {
+            string departureAirport = txtDepartureAirport.Text.Trim().ToUpper();
+            string arrivalAirport = txtArrivalAirport.Text.Trim().ToUpper();
+
+            if (string.IsNullOrEmpty(departureAirport) || string.IsNullOrEmpty(arrivalAirport))
+            {
+                MessageBox.Show("Пожалуйста, введите аэропорт отправления и аэропорт прибытия, затем нажмите кнопку рассчитать", "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+                _connection.Open();
+
+                string query = "SELECT FlightNumber, DepartureDateTime, ArrivalDateTime, Price FROM Flights " +
+                               "WHERE DepartureAirport = @DepartureAirport AND ArrivalAirport = @ArrivalAirport";
+
+                _dataAdapter = new SqlDataAdapter(query, _connection);
+                _dataAdapter.SelectCommand.Parameters.Add("@DepartureAirport", SqlDbType.VarChar).Value = departureAirport;
+                _dataAdapter.SelectCommand.Parameters.Add("@ArrivalAirport", SqlDbType.VarChar).Value = arrivalAirport;
+
+                _flightsTable = new DataTable();
+                _dataAdapter.Fill(_flightsTable);
+                dataGridViewFlights.DataSource = _flightsTable;
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при загрузке данных о стоимости билетов: {ex.Message}\n{ex.StackTrace}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (_connection.State == ConnectionState.Open)
+                {
+                    _connection.Close();
+                }
+            }
+        }
+
+        private void CostForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (_connection != null && _connection.State == ConnectionState.Open)
+            {
+                _connection.Close();
+            }
+        }
+
+        private void prv_btn_Click(object sender, EventArgs e)
+        {
+            Cashier casserForm = new Cashier();
+            this.Hide();
+            casserForm.ShowDialog();
+            this.Close();
+        }
+    }
+}
