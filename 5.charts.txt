@@ -1,6 +1,6 @@
 public partial class Charts : Form
     {
-        private string ConnectionString = "Data Source=DESKTOP-TN0ES09;Initial Catalog=AirportKassa;Integrated Security=True";
+        private string ConnectionString = "Data Source=твой пк;Initial Catalog=AirportKassa;Integrated Security=True";
         private readonly SqlConnection _connection;
         private SqlDataAdapter _dataAdapter;
         private DataTable _flightsTable;
